@@ -14,3 +14,5 @@ def handle_event(event):
             tcp_queue.append("keyleft;0")
         elif event.key == pygame.K_d:
             tcp_queue.append("keyright;0")
+        elif event.key == pygame.K_p:
+            env_vars["opened_backpack"] = not env_vars["opened_backpack"]

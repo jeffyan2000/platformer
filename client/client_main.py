@@ -34,6 +34,7 @@ while True:
     screen.fill((153, 241, 255))
 
     test_world.draw()
+    test_backpack.draw()
     screen.blit(texture_lib["cursor1"], (env_vars["mouse_x"]- 10, env_vars["mouse_y"] - 10))
     pygame.display.flip()
     clock.tick(40)
