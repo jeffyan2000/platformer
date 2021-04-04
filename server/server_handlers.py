@@ -25,11 +25,13 @@ class ClientSocket:
     def send_udp(self, data):
         if self.is_udp_ready():
             s_udp.sendto(data.encode(), (self.addr[0], self.udp_port))
+            test_variables[0] += len(data)
 
     def send_udps(self, data):
         for item in data:
             if self.is_udp_ready():
                 s_udp.sendto(item.encode(), (self.addr[0], self.udp_port))
+                test_variables[0] += len(item)
 
 
 def handle_client_listener(client_socket, addr):
@@ -39,6 +41,7 @@ def handle_client_listener(client_socket, addr):
     print("process  " + str(my_id) + " started")
     my_socket = ClientSocket(addr, my_id)
     my_player = my_socket.player
+    my_player.set_socket(my_socket)
 
     world_test.add_player(my_socket.player)
 
@@ -58,10 +61,14 @@ def handle_client_listener(client_socket, addr):
                     my_socket.send_udp(connect_sockets[socket_id].id_packet())
                     if socket_id != my_id:
                         connect_sockets[socket_id].send_udp(my_socket.id_packet())
+                my_socket.send_udp(my_player.backpack.get_packet())
+                my_socket.send_udp(world_test.get_player_packets_full())
             elif payload.startswith("key"):
                 key_event = payload[3:].split(";")
                 key_event[1] = int(key_event[1])
                 my_player.handle_keypress(key_event)
+            elif payload.startswith("p0"):
+                my_player.pick_item(payload[2:])
             else:
                 print(payload)
 
@@ -82,19 +89,25 @@ class BattleUpdateLoop(threading.Thread):
         self.timed_map_update = 5
         self.timed_map_tick = 0
         self.start()
+        self.last_traffic = pygame.time.get_ticks()
 
     def run(self):
         while not self.dead:
-            world_test.delta_time = clock.tick(50)/20
+            world_test.delta_time = clock.tick(45)/20
             world_test.update()
+            packets = world_test.get_player_packets()
             for i in range(len(connect_id_list)-1, -1, -1):
                 socket_id = connect_id_list[i]
                 if socket_id in connect_sockets:
-                    packets = world_test.get_player_packets()
                     if packets:
                         connect_sockets[socket_id].send_udp(packets)
                 else:
                     del connect_id_list[i]
+            if pygame.time.get_ticks() - self.last_traffic > 5000:
+                self.last_traffic = pygame.time.get_ticks()
+                if connect_sockets:
+                    print("packet size per player: " + str(test_variables[0]/len(connect_sockets)/5/1024) + "kb/s")
+                test_variables[0] = 0
 
     def stop(self):
         self.dead = True

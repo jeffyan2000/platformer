@@ -2,11 +2,11 @@ import random
 
 setting_1 = {
     "map_items": (
-        ("tree1", 8),
-        ("rock1", 3),
-        ("tall_grass1", 20),
-        ("flower1", 5),
-        ("melon1", 5),
+        ("tree1", 4),
+        ("rock1", 1),
+        ("tall_grass1", 8),
+        ("flower1", 2),
+        ("melon1", 2),
         ("melon2", 1)
     ),
     "map_range": (-800, 800)

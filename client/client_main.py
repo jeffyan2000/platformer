@@ -26,8 +26,7 @@ while True:
         elif event.type == pygame.MOUSEBUTTONDOWN:
             env_vars["mouse_button_down"] = True
             env_vars["mouse_button_changed"] = True
-        elif event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
-            handle_event(event)
+        handle_event(event)
 
         env_vars["keys"] = pygame.key.get_pressed()
 

@@ -2,12 +2,55 @@ from server_config import *
 from server_cycles import *
 
 
+class Item(Packable):
+    def __init__(self, my_name, count):
+        self.name = my_name
+        self.count = count
+
+    def get_packet(self):
+        return assemble_packet(self.name, self.count)
+
+
+class BackPack(Packable):
+    def __init__(self):
+        self.slots = [[Item(0, 0) for _ in range(6)] for _ in range(3)]
+        self.slots[0][0] = Item(1, 999)
+
+    def get_packet(self):
+        result = ""
+        for item_row in self.slots:
+            for item in item_row:
+                result += item.get_packet()
+        return assemble_header("006", result)
+
+    def add_item(self, name, count):
+        for slot_row in self.slots:
+            for slot in slot_row:
+                if not slot.name:
+                    slot.name = name
+                    slot.count = count
+                    return True
+                elif slot.name == name:
+                    slot.count += count
+                    return True
+        return False
+
+
 class PlayerCharacter(Packable):
     # states: stand, move, attack
     def __init__(self, my_id):
         Packable.__init__(self)
 
         self.my_id = my_id
+
+        self.previous_packet_data = {
+            "pos_x": None,
+            "pos_y": None,
+            "frame": None,
+            "pick_progress": None,
+        }
+
+        self.backpack = BackPack()
         self.my_name = "Player" + str(self.my_id)
         self.pos = [0, 0]
         self.size = [30, 50]
@@ -28,6 +71,14 @@ class PlayerCharacter(Packable):
                        "move": TimedCycle(8, (5, 5, 5, 5, 5, 5, 5, 5), 0),
                        "attack": TimedCycle(2, (5, 5, 10, 3, 1, 2, 5, 3, 10, 5, 15, 2, 1, 2, 20),
                                             (4, 5, 0, 15, 15, 4, 0, -2, -2, 0, 0, -30, -10, -1, 0))}
+
+        self.pick_progress = 0
+        self.pick_target = None
+        self.pick_timer = 0
+        self.socket = None
+
+    def set_socket(self, target_socket):
+        self.socket = target_socket
 
     def move_in_direction(self, dx, dy):
         self.pos[0] += dx * self.moving_direction[0] * self.world.delta_time
@@ -50,7 +101,33 @@ class PlayerCharacter(Packable):
             return dir + "1" + tick
 
     def get_packet(self):
-        return assemble_packet(self.my_id, int(self.pos[0]), int(self.pos[1]), self.get_frame())
+        pos_x, pos_y, frame, pick_progress = int(self.pos[0]), int(self.pos[1]), self.get_frame(), str(self.pick_progress)
+        if pos_x == self.previous_packet_data["pos_x"]:
+            pos_x = ""
+        else:
+            self.previous_packet_data["pos_x"] = pos_x
+
+        if pos_y == self.previous_packet_data["pos_y"]:
+            pos_y = ""
+        else:
+            self.previous_packet_data["pos_y"] = pos_y
+
+        if frame == self.previous_packet_data["frame"]:
+            frame = ""
+        else:
+            self.previous_packet_data["frame"] = frame
+
+        if pick_progress == self.previous_packet_data["pick_progress"]:
+            pick_progress = ""
+        else:
+            self.previous_packet_data["pick_progress"] = pick_progress
+
+        if pos_x or pos_y or frame or pick_progress:
+            return assemble_packet(self.my_id, pos_x, pos_y, frame, pick_progress)
+        return ""
+
+    def get_packet_full(self):
+        return assemble_packet(self.my_id, int(self.pos[0]), int(self.pos[1]), self.get_frame(), self.pick_progress)
 
     def current_cycle(self):
         return self.cycles[self.state]
@@ -81,6 +158,25 @@ class PlayerCharacter(Packable):
             elif self.pos[0] < self.world.range[0]:
                 self.pos[0] = self.world.range[0]
 
+        if self.pick_target:
+            if prev_pos[0] != self.pos[0] or prev_pos[1] != self.pos[1] or self.pick_target not in self.world.items:
+                self.stop_picking()
+            else:
+                self.pick_timer += 1
+                if self.pick_timer > 20:
+                    self.pick_timer = 0
+                    self.pick_progress += self.world.items[self.pick_target].get_collection_speed()
+                    if self.pick_progress >= 100:
+                        self.pick_progress = 0
+                        drop_items = self.world.items[self.pick_target].get_drop()
+                        for item in drop_items:
+                            self.backpack.add_item(item[0], item[1])
+                            self.socket.send_udp("008" + assemble_packet(item[0], item[1]))
+                        del self.world.items[self.pick_target]
+                        for player in self.world.players:
+                            self.world.players[player].socket.send_udp("007" + str(self.pick_target))
+                        self.pick_target = None
+
     def continue_attack(self):
         if self.attack_stamps[self.current_attack_stamp - 1] < self.current_cycle().frame < self.attack_stamps[
                 self.current_attack_stamp]:
@@ -92,6 +188,16 @@ class PlayerCharacter(Packable):
         self.state = target_state
         self.cycles[target_state].reset()
         self.current_attack_stamp = 1
+
+    def pick_item(self, item_name):
+        self.pick_target = item_name
+        self.pick_progress = 0
+        self.pick_timer = 11
+
+    def stop_picking(self):
+        self.pick_target = None
+        self.pick_progress = 0
+        self.pick_timer = 0
 
     def handle_keypress(self, key_event):
         if key_event[1]:

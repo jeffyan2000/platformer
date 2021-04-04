@@ -15,14 +15,20 @@ PACKET_TYPES = {
     "003": "info_my_id",
     "004": "map_load",
     "005": "map_remove_player",
+    "006": "player_backpack_info",
+    "007": "map_remove_item",
+    "008": "pack_add_item",
 }
 
 PACKET_DATA = {
-    "001": ("player_id", "pos_x", "pos_y", "frame"),
+    "001": ("player_id", "pos_x", "pos_y", "frame", "pick_progress"),
     "002": ("player_id", "player_name"),
     "003": ("my_id", ),
     "004": ("id", "name", "x", "y"),
     "005": ("player_id", ),
+    "006": ("name", "count"),
+    "007": ("id",),
+    "008": ("name", "count"),
 }
 
 

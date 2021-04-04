@@ -16,3 +16,6 @@ def handle_event(event):
             tcp_queue.append("keyright;0")
         elif event.key == pygame.K_p:
             env_vars["opened_backpack"] = not env_vars["opened_backpack"]
+    elif event.type == pygame.MOUSEBUTTONUP:
+        if env_vars["hovered_item"]:
+            tcp_queue.append("p0" + env_vars["hovered_item"].id)

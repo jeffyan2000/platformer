@@ -31,6 +31,12 @@ class ClientSocket(Thread):
                 test_world.add_map_items(packets[1])
             elif packets[0] == "map_remove_player":
                 test_world.remove_player(packets[1])
+            elif packets[0] == "player_backpack_info":
+                test_backpack.update_items(packets[1])
+            elif packets[0] == "map_remove_item":
+                test_world.remove_item(packets[1][0].get("id"))
+            elif packets[0] == "pack_add_item":
+                test_backpack.add_item(packets[1][0].get("name"), packets[1][0].get("count"))
 
     def stop(self):
         self.dead = True

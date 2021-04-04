@@ -17,6 +17,28 @@ class MapItem(Packable):
     def get_packet(self):
         return assemble_packet(self.id, self.name, self.x, self.y)
 
+    def get_drop(self):
+        drop_map = {
+            "tree1": ((4, 3),),
+            "rock1": ((3, 3),),
+            "tall_grass1": ((1, 1),),
+            "melon1": ((2, 1),),
+            "melon2": ((2, 5),),
+            "flower1": (),
+        }
+        return drop_map[self.name]
+
+    def get_collection_speed(self):
+        collection_speed_map = {
+            "tree1": 20,
+            "rock1": 10,
+            "tall_grass1": 40,
+            "melon1": 30,
+            "melon2": 30,
+            "flower1": 70,
+        }
+        return collection_speed_map[self.name]
+
 
 class World(Packable):
     def __init__(self):
@@ -44,6 +66,14 @@ class World(Packable):
                 results.append("004")
                 results[-1] += self.items[item].get_packet()
         return results
+
+    def get_player_packets_full(self):
+        if not self.players:
+            return ""
+        result = ""
+        for playerID in self.players:
+            result += self.players[playerID].get_packet_full()
+        return assemble_header("001", result)
 
     def get_player_packets(self):
         if not self.players:
